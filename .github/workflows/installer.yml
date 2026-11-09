@@ -39,6 +39,13 @@ jobs:
           path: ws-server/src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
 
+      - name: upload portable exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: input-overlay-portable
+          path: ws-server/src-tauri/target/release/input-overlay-ws.exe
+          if-no-files-found: error
+
       - name: attach installer to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
