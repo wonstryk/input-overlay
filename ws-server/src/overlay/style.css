@@ -2490,3 +2490,23 @@ li {
 body.overlay-mode .status.connected {
     display: none;
 }
+
+/* layout editing and background image */
+#inner-overlay-container {
+    isolation: isolate;
+}
+
+#overlay-image-layer {
+    position: absolute;
+    z-index: -1;
+    pointer-events: none;
+    background-size: cover;
+    background-position: center;
+    border-radius: 8px;
+}
+
+body.edit-mode #inner-overlay-container {
+    outline: 1px dashed rgba(255, 255, 255, 0.6);
+    outline-offset: 10px;
+    cursor: move;
+}

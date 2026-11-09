@@ -15,6 +15,10 @@ pub struct Config {
     pub linux_evdev_keyboard_device: String,
     pub linux_raw_mouse_device: String,
     pub theme: Option<String>,
+    pub overlay_offset_x: f64,
+    pub overlay_offset_y: f64,
+    pub overlay_image_path: String,
+    pub overlay_image_opacity: u8,
 }
 
 impl Default for Config {
@@ -31,6 +35,10 @@ impl Default for Config {
             linux_evdev_keyboard_device: String::new(),
             linux_raw_mouse_device: String::new(),
             theme: None,
+            overlay_offset_x: 0.0,
+            overlay_offset_y: 0.0,
+            overlay_image_path: String::new(),
+            overlay_image_opacity: 60,
         }
     }
 }

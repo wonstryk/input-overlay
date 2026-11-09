@@ -2,6 +2,7 @@
 import { WebSocketManager } from "./webSocketManager.js";
 import { GamepadManager } from "./gamepadManager.js";
 import { DEFAULT_KEY_LAYOUT_TUPLES } from "./defaultLayout.js";
+import { setupLayoutEditor, setupBackgroundImage } from "./overlayEditor.js";
 
 export class OverlayMode {
     constructor(utils, urlManager, layoutParser, visualizer, keyLayoutParser = null) {
@@ -22,6 +23,14 @@ export class OverlayMode {
         requestAnimationFrame(() => {
             this.visualizer.applyStyles(settings);
             this.visualizer.rebuildInterface(settings);
+
+            const params = this.urlManager.urlParams;
+            const container = document.getElementById("inner-overlay-container");
+            setupLayoutEditor(container, { offsetX: params.get("offsetX"), offsetY: params.get("offsetY") });
+            setupBackgroundImage(container, this.visualizer.previewElements?.mouseElements, {
+                imageData: params.get("imageData") || "",
+                imageOpacity: params.get("imageOpacity") ?? 60,
+            });
 
             let wsOnlyGamepad;
             if (settings.keyLayout && keyLayoutParser) {

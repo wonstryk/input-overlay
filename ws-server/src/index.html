@@ -31,6 +31,7 @@
       <menu role="tablist">
         <button role="tab" aria-selected="true" aria-controls="tab-server">Server</button>
         <button role="tab" aria-controls="tab-input">Input</button>
+        <button role="tab" aria-controls="tab-overlay">Overlay</button>
         <button role="tab" aria-controls="tab-about">About</button>
       </menu>
 
@@ -113,6 +114,32 @@
           <div class="field-row" style="margin-top: 8px;">
             <input type="checkbox" id="send-mouse-move" />
             <label for="send-mouse-move">Enable mouse movement</label>
+          </div>
+        </fieldset>
+      </article>
+
+      <article role="tabpanel" hidden id="tab-overlay">
+        <fieldset>
+          <legend>Background image</legend>
+          <p style="font-size: 11px; color: #555; margin: 0 0 6px;">
+            Shown behind the mouse keys. Paste the full path to a png, jpg, gif, webp or bmp file.
+          </p>
+          <div class="field-row-stacked" style="width: 100%;">
+            <label for="overlay-image">Image file</label>
+            <input type="text" id="overlay-image" autocomplete="off" placeholder="C:\Users\you\Pictures\bg.png" style="width: 100%; box-sizing: border-box;" />
+          </div>
+          <div class="field-row-stacked" style="width: 100%; margin-top: 8px;">
+            <label for="overlay-image-opacity">Image transparency: <span id="overlay-image-opacity-val">60</span>%</label>
+            <input type="range" id="overlay-image-opacity" min="0" max="100" step="1" style="width: 100%;" />
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Position</legend>
+          <p style="font-size: 11px; color: #555; margin: 0 0 6px;">
+            Hold Shift and drag the keys on screen to move them.
+          </p>
+          <div class="field-row">
+            <button id="reset-overlay-pos">Reset position</button>
           </div>
         </fieldset>
       </article>

@@ -22,6 +22,10 @@ const copyBtn = document.getElementById("copy-token");
 const regenBtn = document.getElementById("regen-token");
 const autostartEl = document.getElementById("autostart");
 const analogEl = document.getElementById("analog-keyboard");
+const overlayImageEl = document.getElementById("overlay-image");
+const overlayOpacityEl = document.getElementById("overlay-image-opacity");
+const overlayOpacityVal = document.getElementById("overlay-image-opacity-val");
+const resetOverlayPosBtn = document.getElementById("reset-overlay-pos");
 const adminWarning = document.getElementById("admin-warning");
 const addKeyBtn = document.getElementById("add-key-btn");
 const keyList = document.getElementById("key-list");
@@ -175,6 +179,9 @@ function applyConfig(cfg) {
   authEl.value = cfg.auth_token ?? "";
   mouseMove.checked = cfg.send_mouse_move ?? true;
   analogEl.value = cfg.analog_keyboard ?? "";
+  overlayImageEl.value = cfg.overlay_image_path ?? "";
+  overlayOpacityEl.value = cfg.overlay_image_opacity ?? 60;
+  overlayOpacityVal.textContent = overlayOpacityEl.value;
   whitelist = [...(cfg.key_whitelist ?? [])];
   renderKeyList();
   const kbdEl = document.getElementById("kbd-device");
@@ -194,6 +201,8 @@ function readConfig() {
     send_mouse_move: mouseMove.checked,
     key_whitelist: [...whitelist],
     analog_keyboard: analogEl.value,
+    overlay_image_path: overlayImageEl.value.trim(),
+    overlay_image_opacity: parseInt(overlayOpacityEl.value, 10) || 0,
     raw_mouse_min_delta: originalConfig?.raw_mouse_min_delta ?? 0,
     cpu_affinity: originalConfig?.cpu_affinity ?? [0, 1],
     linux_evdev_keyboard_device: kbdEl ? kbdEl.value : (originalConfig?.linux_evdev_keyboard_device ?? ""),
@@ -310,6 +319,19 @@ portEl.addEventListener("input", () => markDirty());
 portEl.addEventListener("blur", () => applyBindIfValid(`port changed to: ${portEl.value}`));
 authEl.addEventListener("input", () => markDirty());
 mouseMove.addEventListener("change", () => markDirty());
+overlayImageEl.addEventListener("input", () => markDirty());
+overlayOpacityEl.addEventListener("input", () => {
+  overlayOpacityVal.textContent = overlayOpacityEl.value;
+  markDirty();
+});
+resetOverlayPosBtn.addEventListener("click", async () => {
+  try {
+    await invoke("save_overlay_offset", { x: 0, y: 0 });
+    statusNotify.show("overlay position reset");
+  } catch (e) {
+    showMsg(String(e), true);
+  }
+});
 analogEl.addEventListener("change", () => markDirty());
 
 document.getElementById("min-btn").addEventListener("click", () => {

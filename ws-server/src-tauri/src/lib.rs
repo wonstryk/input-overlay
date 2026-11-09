@@ -37,12 +37,15 @@ async fn get_config(state: tauri::State<'_, AppState>) -> Result<Config, String>
 
 #[tauri::command]
 async fn save_config(
-    new_cfg: Config,
+    mut new_cfg: Config,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
     let (need_rebind, need_analog_restart, need_evdev_restart) = {
         let old = state.config.read().await;
+        // the overlay position is changed by dragging, not by this page, so keep the stored one
+        new_cfg.overlay_offset_x = old.overlay_offset_x;
+        new_cfg.overlay_offset_y = old.overlay_offset_y;
         (
             old.host != new_cfg.host || old.port != new_cfg.port,
             old.analog_keyboard != new_cfg.analog_keyboard,
@@ -109,6 +112,18 @@ async fn apply_bind(
     cfg.port = port;
     let _ = state.ws_state.rebind_tx.send(());
     Ok(())
+}
+
+#[tauri::command]
+async fn save_overlay_offset(
+    x: f64,
+    y: f64,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut cfg = state.config.write().await;
+    cfg.overlay_offset_x = x;
+    cfg.overlay_offset_y = y;
+    services::config::save(&state.config_path, &cfg).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -367,6 +382,8 @@ pub fn run() {
 
             build_tray(app)?;
             open_overlay_window(app.handle(), &overlay_cfg)?;
+            #[cfg(windows)]
+            spawn_shift_watcher(app.handle().clone());
             Ok(())
         })
         .invoke_handler({
@@ -379,6 +396,7 @@ pub fn run() {
                     get_autostart,
                     set_autostart,
                     apply_bind,
+                    save_overlay_offset,
                     minimize_window,
                     close_window,
                     open_url,
@@ -395,6 +413,7 @@ pub fn run() {
                     get_autostart,
                     set_autostart,
                     apply_bind,
+                    save_overlay_offset,
                     minimize_window,
                     close_window,
                     open_url,
@@ -472,8 +491,83 @@ fn overlay_init_script(cfg: &Config) -> String {
     let params = serde_json::json!({
         "ws": format!("{}:{}", host, cfg.port),
         "wsauth": cfg.auth_token,
+        "offsetX": cfg.overlay_offset_x,
+        "offsetY": cfg.overlay_offset_y,
+        "imageOpacity": cfg.overlay_image_opacity,
+        "imageData": load_image_data_uri(&cfg.overlay_image_path).unwrap_or_default(),
     });
     format!("window.__OVERLAY_PARAMS__ = {params};")
+}
+
+/// Reads a png/jpg/gif/webp/bmp file and returns it as a data URI (max 8 MB).
+fn load_image_data_uri(path: &str) -> Option<String> {
+    let path = path.trim().trim_matches('"');
+    if path.is_empty() {
+        return None;
+    }
+    let mime = match std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())?
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        _ => return None,
+    };
+    let bytes = match std::fs::read(path) {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::warn!("overlay image not readable: {e}");
+            return None;
+        }
+    };
+    if bytes.len() > 8 * 1024 * 1024 {
+        tracing::warn!("overlay image larger than 8 MB, ignored");
+        return None;
+    }
+    Some(format!("data:{mime};base64,{}", base64_encode(&bytes)))
+}
+
+fn base64_encode(input: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
+    for chunk in input.chunks(3) {
+        let b1 = chunk[0] as u32;
+        let b2 = *chunk.get(1).unwrap_or(&0) as u32;
+        let b3 = *chunk.get(2).unwrap_or(&0) as u32;
+        let n = (b1 << 16) | (b2 << 8) | b3;
+        out.push(TABLE[(n >> 18) as usize & 63] as char);
+        out.push(TABLE[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { TABLE[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { TABLE[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
+/// Windows only: holding Shift turns off click-through so the overlay can be dragged.
+#[cfg(windows)]
+fn spawn_shift_watcher(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        use tauri::Emitter;
+        use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+        const VK_SHIFT: i32 = 0x10;
+        let mut editing = false;
+        loop {
+            let down = (unsafe { GetAsyncKeyState(VK_SHIFT) } as u16 & 0x8000) != 0;
+            if down != editing {
+                editing = down;
+                if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
+                    let _ = window.set_ignore_cursor_events(!down);
+                }
+                let _ = app.emit_to(OVERLAY_LABEL, "overlay-edit-mode", down);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(40));
+        }
+    });
 }
 
 /// Opens (or reopens) the transparent overlay that covers the primary monitor.
